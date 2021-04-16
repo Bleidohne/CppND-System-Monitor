@@ -12,6 +12,7 @@ using namespace LinuxParser;
 using std::string;
 using std::to_string;
 using std::vector;
+using std::stoi;
 
 
 // Constructor for Process Class
@@ -19,7 +20,7 @@ Process::Process(int pid){
    
    pid_ = pid;                      // Attach pid to the created process.
 
-   cpu_utilization_ = LinuxParser::CpuUtilization(pid);
+  // cpu_utilization_ = LinuxParser::CpuUtilization(pid);
    command_ = LinuxParser::Command(pid);
    Ram_ = LinuxParser::Ram(pid);
    User_ = LinuxParser::User(pid);
@@ -32,13 +33,21 @@ Process::Process(int pid){
 int Process::Pid() { return pid_; }
 
 // TODO: Return this process's CPU utilization
-float Process::CpuUtilization() { return cpu_utilization_; }  
+float Process::CpuUtilization() { 
+    
+    float pid_utime = LinuxParser::UpTime(Pid());            // Time process running in seconds
+    float totalTime = LinuxParser::ActiveJiffies(Pid());     // Time process was active
+    
+    cpu_utilization_ = (float) (totalTime / sysconf(_SC_CLK_TCK)) / pid_utime;
+    
+    return cpu_utilization_; 
+    }  
 
 // TODO: Return the command that generated this process
 string Process::Command() { return command_; }
 
 // TODO: Return this process's memory utilization
-string Process::Ram() { return Ram_; }
+string Process::Ram() {  return Ram_; }
 
 // TODO: Return the user (name) that generated this process
 string Process::User() { return User_; }

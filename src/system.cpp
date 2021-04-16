@@ -13,11 +13,14 @@ using std::set;
 using std::size_t;
 using std::string;
 using std::vector;
+using std::sort;
 
 using namespace LinuxParser;
 
 // [ML DONE]: Return the system's CPU
 Processor& System::Cpu() { return cpu_; }
+
+bool System::compare(Process& process1, Process& process2) {return (process1 < process2);}
 
 // TODO: Return a container composed of the system's processes
 vector<Process>& System::Processes() {  
@@ -27,10 +30,13 @@ vector<Process>& System::Processes() {
     vector<int> pids = LinuxParser::Pids();
 
     for(int pid:pids){
-    Process process(pid);
-    processes_.push_back(process);
+       Process process(pid);
+       processes_.push_back(process);
     }
-        
+
+    sort(processes_.begin(), processes_.end(), compare);         // Sorting the processes downward CPU load. 
+
+
     return processes_; 
 }
 
@@ -51,3 +57,4 @@ int System::TotalProcesses() { return LinuxParser::TotalProcesses(); }
 
 // [ML DONE]: Return the number of seconds since the system started running
 long System::UpTime() { return LinuxParser::UpTime(); }
+

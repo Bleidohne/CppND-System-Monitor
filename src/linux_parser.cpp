@@ -4,12 +4,12 @@
 #include <string>
 #include <vector>
 #include <iostream>
-#include <bits/stdc++.h>
 #include <unistd.h>
 
 #include "linux_parser.h"
 
 using std::stof;
+using std::stol;
 using std::string;
 using std::to_string;
 using std::vector;
@@ -110,7 +110,7 @@ float LinuxParser::MemoryUtilization() {
 // [ML DONE]: Read and return the system uptime
 long LinuxParser::UpTime() { 
   
-  float uptime;
+  string uptime;
   string line;
 
   std::ifstream stream(kProcDirectory + kUptimeFilename);
@@ -119,8 +119,7 @@ long LinuxParser::UpTime() {
      std::getline(stream, line);
      std::istringstream linestream(line);
      linestream >> uptime;
-     uptime = uptime * 100;       // Remove decimal place      
-     return ((long)uptime)/100;   // Cast to long and skip decimal places. 
+     return std::stol(uptime);   
   }
  
   return 0; 
@@ -157,22 +156,20 @@ long LinuxParser::ActiveJiffies(int pid) {
   string pid_s = std::to_string(pid);
   string line;
   string key; 
-  int i=0;
   long jiffies_active = 0;
 
-  std::ifstream filestream(kProcDirectory + "/" + pid_s + kStatFilename); 
+  std::ifstream filestream(kProcDirectory + pid_s + kStatFilename); 
 
   if(filestream.is_open()){
      std::getline(filestream, line);
-     std::stringstream linestream(line);
+     std::istringstream linestream(line);
 
-     while(linestream >> key){
-       i++;
-       if(i >= 14 && i <= 17 )
-          jiffies_active += std::stoi(key);
+     for(int i=1; i<=17; i++){
+        linestream >> key;
+        if(i>=14 && i <=17){
+          jiffies_active += std::stol(key);
+        }
 
-       if(i>17)                             // All values were found.
-          break;
      }
 
      return jiffies_active;
@@ -233,41 +230,53 @@ long LinuxParser::IdleJiffies() {
 // [ML DONE]: Read and return CPU utilization
 float LinuxParser::CpuUtilization() { 
   
+  static float ACTIVE_ = 0;
+  static float TOTAL_ = 0;
   float active;
-  float total; 
-  
-
+  float total;
+  float utilization; 
+   
   active = LinuxParser::ActiveJiffies();
   total = LinuxParser::Jiffies();
-  
-  sleep(1); // Suspend Task for 1 Second. 
 
-  if( total > 0 )
-     return (((float)LinuxParser::ActiveJiffies() - active) / ((float)LinuxParser::Jiffies() - total)); 
+  if(total > 0 ){
+     utilization = (active - ACTIVE_) / (total - TOTAL_);      
+  } else {
+    return 0;
+  }
 
-  return 0.0; // If division 0 would happen. 
+  ACTIVE_ = active;        // Safe the counts in global value to calculate DELTA ACTIVE / DELTA TOTAL
+  TOTAL_ = total; 
+      
+  return utilization; // If division 0 would happen. 
 
   }
 
-
+/*
 float LinuxParser::CpuUtilization(int pid) { 
   
+  static float ACTIVE_PID = 0;
+  static float TOTAL_PID = 0;
   float active;
-  float total; 
-  
-
+  float total;
+  float utilization; 
+   
   active = LinuxParser::ActiveJiffies(pid);
-  total = LinuxParser::Jiffies();
-  
-  sleep(1); // Suspend Task for 1 Second. 
+  total = LinuxParser::ActiveJiffies();
 
-  if( total > 0 )
-     return (((float)LinuxParser::ActiveJiffies(pid) - active) / ((float)LinuxParser::Jiffies() - total)); 
-
-  return 0.0; // If division 0 would happen. 
-
+  if(total > 0 ){
+     utilization = (active - ACTIVE_PID) / (total - TOTAL_PID);      
+  } else {
+    return 0;
   }
 
+  ACTIVE_PID = active;        // Safe the counts in global value to calculate DELTA ACTIVE / DELTA TOTAL
+  TOTAL_PID = total; 
+      
+  return utilization; // If division 0 would happen. 
+
+  }
+*/
 
 // [ML DONE]: Read and return the total number of processes
 int LinuxParser::TotalProcesses() { 
@@ -324,12 +333,15 @@ string LinuxParser::Command(int pid) {
   
   string pid_s = std::to_string(pid);
   string line;
+  string key;
   
-  std::ifstream filestream(kProcDirectory + "/" + pid_s + kCmdlineFilename); 
+  std::ifstream filestream(kProcDirectory + pid_s + kCmdlineFilename); 
   
   if(filestream.is_open()){
      std::getline(filestream, line);
-     return line;
+     std::istringstream linestream(line);
+     linestream >> key;
+     return key;
   }
 
 
@@ -346,20 +358,20 @@ string LinuxParser::Ram(int pid) {
   string key; 
   string VmSize;
   
-  std::ifstream filestream(kProcDirectory + "/" + pid_s + kCmdlineFilename); 
+  std::ifstream filestream(kProcDirectory + pid_s + kStatusFilename); 
   
   if(filestream.is_open()){
      while(std::getline(filestream, line)){
         std::istringstream linestream(line);
         linestream >> key; 
-        if(key =="VmSize"){
+        if(key =="VmSize:"){
            linestream >> VmSize;
-           return VmSize;
+           return to_string(stol(VmSize)/1024);
         }     
      }
   }
   
-  return {}; 
+  return {"none"}; 
 
 }
 
@@ -372,13 +384,13 @@ string LinuxParser::Uid(int pid) {
   string key; 
   string Uid_;
   
-  std::ifstream filestream(kProcDirectory + "/" + pid_s + kCmdlineFilename); 
+  std::ifstream filestream(kProcDirectory + pid_s + kStatusFilename); 
   
   if(filestream.is_open()){
      while(std::getline(filestream, line)){
         std::istringstream linestream(line);
         linestream >> key; 
-        if(key =="Uid"){
+        if(key == "Uid:"){
            linestream >> Uid_;
            return Uid_;
         }     
@@ -402,7 +414,6 @@ string LinuxParser::User(int pid) {
   if(filestream.is_open()){
      while(std::getline(filestream, line)){
         if(line.find(user_ID)){
-
            std::replace(line.begin(), line.end(), ':', ' ');
            std::istringstream linestream(line);
            linestream >> username_; 
@@ -425,22 +436,23 @@ long LinuxParser::UpTime(int pid) {
   int i=0;
   long uptime_ = 0;
 
-  std::ifstream filestream(kProcDirectory + "/" + pid_s + kStatFilename); 
+  std::ifstream filestream(kProcDirectory + pid_s + kStatFilename); 
 
   if(filestream.is_open()){
-     std::getline(filestream, line);
+     while(std::getline(filestream, line)){
      std::stringstream linestream(line);
 
      while(linestream >> key){
        i++;
-       if(i == 19 ){
-          uptime_ += std::stoi(key);
-          break;
+       if(i == 22 ){
+          uptime_ = stol(key) ;
+          return (LinuxParser::UpTime() - (long)((float)uptime_ / (float) sysconf(_SC_CLK_TCK)));
        }
           
      }
+     }
 
-     return uptime_;
+     
 
   }
   
