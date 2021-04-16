@@ -364,7 +364,7 @@ string LinuxParser::Ram(int pid) {
      while(std::getline(filestream, line)){
         std::istringstream linestream(line);
         linestream >> key; 
-        if(key =="VmSize:"){
+        if(key =="VmData:"){
            linestream >> VmSize;
            return to_string(stol(VmSize)/1024);
         }     
