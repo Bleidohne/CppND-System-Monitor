@@ -20,12 +20,14 @@ using namespace LinuxParser;
 // [ML DONE]: Return the system's CPU
 Processor& System::Cpu() { return cpu_; }
 
+// Based on https://www.cplusplus.com/reference/algorithm/sort/
 bool System::compare(Process& process1, Process& process2) {return (process1 < process2);}
 
 // TODO: Return a container composed of the system's processes
+// Based on Feedback: https://knowledge.udacity.com/questions/278992
 vector<Process>& System::Processes() {  
     
-    processes_.clear();                                 // Clear the list as this is periodically done.
+    processes_.clear();                                          // Clear the list as this is periodically done due to cann in display function.
     
     vector<int> pids = LinuxParser::Pids();
 
